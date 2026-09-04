@@ -16,6 +16,8 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+
+
 _NEW_TAB_HTML = """
 <!DOCTYPE html>
 <html>
