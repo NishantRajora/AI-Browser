@@ -1,0 +1,18 @@
+# --- Phase 1: Browser core ---
+PySide6==6.7.2
+PySide6-Addons==6.7.2
+PySide6-Essentials==6.7.2
+
+# --- Testing ---
+pytest==8.3.2
+
+# --- Phase 3: Ollama HTTP client (used by ai/ollama.py) ---
+requests==2.32.3
+
+# --- Phase 4: Backend server (used by server/ + a future FastAPI app) ---
+fastapi==0.115.0
+uvicorn==0.30.6
+pydantic==2.9.2
+
+# --- Packaging ---
+pyinstaller==6.10.0

@@ -1,0 +1,23 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+*.egg-info/
+build/
+dist/
+*.spec.bak
+
+# PyInstaller
+*.manifest
+
+# App-generated data
+/logs/
+/profile/
+*.db
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
