@@ -93,6 +93,17 @@ class MoreOptionsButton(QToolButton):
 
         self.menu.addSeparator()
 
+        self._select_and_send_action = QAction("Select and Send to AI", self.menu)
+        self._select_and_send_action.setCheckable(True)
+        self._select_and_send_action.setChecked(self._settings.select_and_send_enabled)
+        self._select_and_send_action.setToolTip(
+            "When enabled, right-clicking selected text allows sending it to Ollama."
+        )
+        self._select_and_send_action.toggled.connect(self._on_select_and_send_toggled)
+        self.menu.addAction(self._select_and_send_action)
+
+        self.menu.addSeparator()
+
         self._debug_mode_action = QAction("Debug Mode", self.menu)
         self._debug_mode_action.setCheckable(True)
         self._debug_mode_action.setChecked(False)
@@ -140,6 +151,11 @@ class MoreOptionsButton(QToolButton):
         self._settings.save()
         logger.info("AI review of quiz data %s", "enabled" if checked else "disabled")
 
+    def _on_select_and_send_toggled(self, checked: bool) -> None:
+        self._settings.select_and_send_enabled = checked
+        self._settings.save()
+        logger.info("Select and Send to AI %s", "enabled" if checked else "disabled")
+
     def _refresh_ollama_status(self) -> None:
         self._status_label.setText("Ollama: checking\u2026")
         self._status_label.setStyleSheet(_STATUS_STYLE_CHECKING)
@@ -149,7 +165,7 @@ class MoreOptionsButton(QToolButton):
 
         self._worker = _OllamaStatusWorker(self._settings.ollama_url, self)
         self._worker.finished_status.connect(self._on_status_ready)
-        DebugLog.instance().log("AI", f"Request -> GET {self._settings.ollama_url}/api/tags")
+        DebugLog.instance().log("STATUS", f"Request -> GET {self._settings.ollama_url}/api/tags")
         self._worker.start()
 
     def _on_status_ready(self, status: OllamaStatus) -> None:
@@ -159,11 +175,11 @@ class MoreOptionsButton(QToolButton):
             self._status_label.setText(f"\u25cf Ollama: Online ({count} {model_word})")
             self._status_label.setStyleSheet(_STATUS_STYLE_ONLINE)
             models_list = ", ".join(status.models) if status.models else "none"
-            DebugLog.instance().log("AI", f"Response <- 200 OK, models: [{models_list}]")
+            DebugLog.instance().log("STATUS", f"Response <- 200 OK, models: [{models_list}]")
         else:
             reason = status.error or "Offline"
             self._status_label.setText(f"\u25cf Ollama: {reason}")
             self._status_label.setStyleSheet(_STATUS_STYLE_OFFLINE)
-            DebugLog.instance().log("AI", f"Response <- error: {reason}")
+            DebugLog.instance().log("STATUS", f"Response <- error: {reason}")
 
         self._populate_model_menu(status.models)

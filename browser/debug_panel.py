@@ -25,14 +25,12 @@ class DebugPanel(QWidget):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(6)
 
-        title = QLabel("Debug: AI & Server Traffic")
+        title = QLabel("Debug: AI Traffic")
         title.setObjectName("debugPanelTitle")
         layout.addWidget(title)
 
         subtitle = QLabel(
-            "Real requests/responses only \u2014 nothing simulated. Server "
-            "traffic will appear here once backend submission (Phase 4) "
-            "is implemented."
+            "Only showing data sent to the local LLM and its responses."
         )
         subtitle.setObjectName("debugPanelSubtitle")
         subtitle.setWordWrap(True)
@@ -44,8 +42,14 @@ class DebugPanel(QWidget):
         self.log_view.setFont(QFont("Consolas", 10))
         layout.addWidget(self.log_view, 1)
 
-        # Backfill anything logged before this panel was created/shown.
+        # Backfill only AI entries logged before this panel was created/shown.
         for entry in DebugLog.instance().entries():
-            self.log_view.appendPlainText(entry)
+            if "[AI]" in entry:
+                self.log_view.appendPlainText(entry)
 
-        DebugLog.instance().entry_added.connect(self.log_view.appendPlainText)
+        DebugLog.instance().entry_added.connect(self._on_entry_added)
+
+    def _on_entry_added(self, entry: str) -> None:
+        """Only append entries belonging to the AI category."""
+        if "[AI]" in entry:
+            self.log_view.appendPlainText(entry)

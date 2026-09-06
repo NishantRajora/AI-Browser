@@ -67,3 +67,23 @@ def get_ollama_status(base_url: str) -> OllamaStatus:
         # ValueError covers response.json() failing on non-JSON bodies.
         logger.warning("Ollama status check failed: %s", exc)
         return OllamaStatus(online=False, error="Unexpected response")
+
+def generate_response(base_url: str, model: str, prompt: str) -> str:
+    """
+    Send a prompt to the local Ollama server and return the response text.
+
+    Returns an error message if the request fails.
+    """
+    url = f"{base_url.rstrip('/')}/api/generate"
+    payload = {
+        "model": model,
+        "prompt": f"Provide only the correct and concise answer for the following text. Do not provide explanations or conversational filler:\n\n{prompt}",
+        "stream": False,
+    }
+    try:
+        response = requests.post(url, json=payload, timeout=120.0)
+        response.raise_for_status()
+        return response.json().get("response", "No response received from model.")
+    except Exception as exc:
+        logger.error("Ollama generation failed: %s", exc)
+        return f"Error: {str(exc)}"

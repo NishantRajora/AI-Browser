@@ -25,6 +25,7 @@ class TabWidget(QTabWidget):
     """A QTabWidget specialized for browser tabs, each holding a BrowserView."""
 
     current_view_changed = Signal(object)  # emits the now-active BrowserView
+    ai_request = Signal(str)
 
     def __init__(self, profile: QWebEngineProfile, settings: Settings, parent=None) -> None:
         super().__init__(parent)
@@ -55,6 +56,7 @@ class TabWidget(QTabWidget):
         view.icon_changed.connect(lambda v=view: self._on_icon_changed(v))
         view.loadStarted.connect(lambda v=view: self._on_load_started(v))
         view.loadFinished.connect(lambda ok, v=view: self._on_load_finished(v, ok))
+        view.ai_request.connect(self._handle_view_ai_request)
 
         index = self.addTab(view, _DEFAULT_TAB_TITLE)
         target = url or self._settings.home_page
@@ -65,6 +67,10 @@ class TabWidget(QTabWidget):
 
         logger.info("Opened new tab (index=%d) -> %s", index, target)
         return view
+
+    def _handle_view_ai_request(self, text: str) -> None:
+        logger.info("TabWidget: received ai_request from view, emitting to window")
+        self.ai_request.emit(text)
 
     def close_tab(self, index: int) -> None:
         """Close the tab at `index`. Never lets the window end up with zero tabs."""

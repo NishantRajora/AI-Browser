@@ -15,7 +15,7 @@ from typing import Literal
 
 from PySide6.QtCore import QObject, Signal
 
-Category = Literal["AI", "SERVER"]
+Category = Literal["AI", "SERVER", "STATUS"]
 
 _MAX_ENTRIES = 500
 

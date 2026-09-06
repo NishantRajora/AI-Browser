@@ -8,10 +8,12 @@ here fakes rendering with a custom HTML layout engine.
 from __future__ import annotations
 
 from PySide6.QtCore import QUrl, Signal
+from PySide6.QtGui import QAction
 from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
 from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtWidgets import QMenu
 
-from config.settings import NEW_TAB_URL
+from config.settings import NEW_TAB_URL, get_settings
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -120,6 +122,7 @@ class BrowserView(QWebEngineView):
     title_changed = Signal(str)
     icon_changed = Signal()
     url_changed_str = Signal(str)
+    ai_request = Signal(str)
 
     def __init__(self, profile: QWebEngineProfile, parent=None) -> None:
         super().__init__(parent)
@@ -130,6 +133,44 @@ class BrowserView(QWebEngineView):
         self.iconChanged.connect(self.icon_changed.emit)
         self.urlChanged.connect(lambda qurl: self.url_changed_str.emit(qurl.toString()))
         self.loadFinished.connect(self._on_load_finished)
+
+    def contextMenuEvent(self, event) -> None:
+        settings = get_settings()
+        # Only add "Send to AI" if enabled and text is selected
+        if settings.select_and_send_enabled:
+            selected_text = self.page().selectedText()
+            if selected_text:
+                logger.info("Context menu: text selected, adding 'Send to AI' option")
+
+                # Create a custom menu since we can't easily modify the internal Chromium menu
+                menu = QMenu(self)
+
+                # Add the "Send to AI" action
+                send_action = QAction("Send to AI", self)
+                send_action.triggered.connect(lambda: self._handle_send_to_ai(selected_text))
+                menu.addAction(send_action)
+
+                # Add a separator
+                menu.addSeparator()
+
+                # Add a few standard actions so the menu isn't too empty
+                copy_action = QAction("Copy", self)
+                copy_action.triggered.connect(lambda: self.page().triggerAction(QWebEnginePage.Copy))
+                menu.addAction(copy_action)
+
+                # Show the menu at the click position
+                menu.exec(event.globalPos())
+                return
+            else:
+                logger.info("Context menu: no text selected")
+        else:
+            logger.info("Context menu: 'Select and Send' is disabled in settings")
+
+        super().contextMenuEvent(event)
+
+    def _handle_send_to_ai(self, text: str) -> None:
+        logger.info("BrowserView: emitting ai_request signal with text")
+        self.ai_request.emit(text)
 
     def _on_load_finished(self, ok: bool) -> None:
         if not ok:

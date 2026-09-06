@@ -60,6 +60,9 @@ class Settings:
     # server instead, per this same flag.
     ai_review_enabled: bool = True
 
+    # When enabled, right-clicking selected text allows sending it to the local AI.
+    select_and_send_enabled: bool = False
+
     _config_path: Path = field(default_factory=lambda: _default_config_dir() / "settings.json", repr=False)
 
     @classmethod

@@ -5,8 +5,8 @@ and wires their signals together.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QMainWindow, QSplitter, QVBoxLayout, QWidget
+from PySide6.QtCore import Qt, Signal, QThread
+from PySide6.QtWidgets import QMainWindow, QSplitter, QVBoxLayout, QWidget, QLabel
 
 from browser.debug_panel import DebugPanel
 from browser.navigation import NavigationBar, resolve_input_to_url
@@ -18,6 +18,24 @@ from config.settings import NEW_TAB_URL, Settings, get_settings
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+class AIWorker(QThread):
+    """Worker to fetch response from local Ollama without blocking UI."""
+    finished = Signal(str)
+
+    def __init__(self, settings: Settings, prompt: str, parent=None) -> None:
+        super().__init__(parent)
+        self._settings = settings
+        self._prompt = prompt
+
+    def run(self) -> None:
+        from ai.ollama import generate_response
+        from browser.debug_log import DebugLog
+
+        DebugLog.instance().log("AI", f"Request -> Send to AI: {self._prompt[:100]}...")
+        result = generate_response(self._settings.ollama_url, self._settings.ollama_model, self._prompt)
+        DebugLog.instance().log("AI", f"Response <- AI: {result[:100]}...")
+        self.finished.emit(result)
 
 _STYLESHEET = """
 QMainWindow { background: #1e1f22; }
@@ -152,6 +170,16 @@ class MainWindow(QMainWindow):
         self.nav_bar.home_clicked.connect(self._go_home)
         self.nav_bar.debug_mode_toggled.connect(self._on_debug_mode_toggled)
         self.tabs.current_view_changed.connect(self._on_current_view_changed)
+        self.tabs.ai_request.connect(self._on_ai_request)
+
+    def _on_ai_request(self, text: str) -> None:
+        """Handle a request to send selected text to AI."""
+        logger.info("MainWindow: _on_ai_request called with text: %s", text[:50] + "...")
+        self.display_ai_response("Thinking…")
+
+        self._ai_worker = AIWorker(self._settings, text, self)
+        self._ai_worker.finished.connect(self.display_ai_response)
+        self._ai_worker.start()
 
     def _current_view(self) -> BrowserView | None:
         return self.tabs.current_view()
@@ -232,7 +260,43 @@ class MainWindow(QMainWindow):
 
     # -- Qt overrides -------------------------------------------------------
 
+    def display_ai_response(self, text: str) -> None:
+        """Show the AI response in a floating label at the bottom-right."""
+        if not hasattr(self, "_ai_response_label"):
+            self._ai_response_label = QLabel(self)
+            self._ai_response_label.setFixedSize(100, 50)
+            self._ai_response_label.setWordWrap(True)
+            self._ai_response_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+            self._ai_response_label.setStyleSheet('''
+                background: rgba(30, 31, 34, 220);
+                color: #eaeaec;
+                border: 1px solid #3a3b3f;
+                border-radius: 12px;
+                padding: 12px;
+                font-size: 13px;
+                font-family: "Segoe UI", Roboto, Arial, sans-serif;
+            ''')
+            self._ai_response_label.hide()
+
+        self._ai_response_label.setText(text)
+        # Position it at the bottom-right
+        self._ai_response_label.move(
+            self.width() - self._ai_response_label.width() - 20,
+            self.height() - self._ai_response_label.height() - 20
+        )
+        self._ai_response_label.show()
+        self._ai_response_label.raise_()
+
+    def resizeEvent(self, event) -> None:
+        if hasattr(self, "_ai_response_label") and self._ai_response_label.isVisible():
+            self._ai_response_label.move(
+                self.width() - self._ai_response_label.width() - 20,
+                self.height() - self._ai_response_label.height() - 20
+            )
+        super().resizeEvent(event)
+
     def closeEvent(self, event) -> None:  # noqa: N802 (Qt override)
+
         self._settings.window_width = self.width()
         self._settings.window_height = self.height()
         self._settings.save()
