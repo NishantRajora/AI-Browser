@@ -1,6 +1,8 @@
 """
-Quiz detection package (DOM-based detector, parser, data models).
+Quiz data-model package.
 
-Not implemented yet. This package exists now purely to establish the
-project's final architecture; it will be filled in during Phase 2.
+quiz/models.py defines a plain data structure for a detected question.
+quiz/detector.py and quiz/parser.py — the code that would scan a live
+page's DOM for question/answer text and hand it to the AI — are
+intentionally left unimplemented. See README.md for why.
 """
