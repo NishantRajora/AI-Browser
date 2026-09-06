@@ -61,8 +61,6 @@ def test_search_queries_go_to_search_engine():
 
 
 def test_multi_word_query_with_dot_is_still_a_search():
-    # "best machine learning courses" has no dot at all, but this test
-    # guards the case where a query contains a dot-like word plus spaces.
     settings = make_settings()
     result = resolve_input_to_url("best machine learning courses", settings)
     assert result.startswith("https://www.google.com/search?q=")

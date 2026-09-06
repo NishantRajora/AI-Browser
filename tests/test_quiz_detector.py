@@ -1,13 +1,14 @@
 """
-Tests for quiz.detector — to be implemented in Phase 2.
+Tests for quiz.detector.
 
-Left as skipped placeholders so `pytest` collects a full suite without
-failing on not-yet-implemented functionality.
+Left as skipped placeholders: quiz/detector.py (the code that would scan
+a live page's DOM for question/answer text) is intentionally not
+implemented — see README.md for why.
 """
 
 import pytest
 
-pytestmark = pytest.mark.skip(reason="Quiz detector is implemented in Phase 2.")
+pytestmark = pytest.mark.skip(reason="quiz/detector.py is intentionally not implemented.")
 
 
 def test_detects_question_with_radio_buttons():
