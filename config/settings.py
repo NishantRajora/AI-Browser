@@ -45,6 +45,8 @@ class Settings:
     search_engine_url: str = "https://www.google.com/search?q={query}"
     window_width: int = 1400
     window_height: int = 900
+    theme: str = "System"
+    open_links_in_new_tab: bool = True
 
     # AI / quiz (used starting Phase 2/3; harmless if unused)
     ollama_url: str = "http://localhost:11434"

@@ -47,6 +47,7 @@ class MoreOptionsButton(QToolButton):
     """The '\u22ee' toolbar button that opens the settings menu."""
 
     debug_mode_toggled = Signal(bool)
+    settings_requested = Signal()
 
     def __init__(self, settings: Settings, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -94,8 +95,7 @@ class MoreOptionsButton(QToolButton):
         self.menu.addSeparator()
 
         settings_action = QAction("Settings\u2026", self.menu)
-        settings_action.setEnabled(False)
-        settings_action.setToolTip("Full settings dialog is not implemented yet.")
+        settings_action.triggered.connect(self.settings_requested.emit)
         self.menu.addAction(settings_action)
 
     def _populate_model_menu(self, models: list[str]) -> None:

@@ -6,7 +6,7 @@ and wires their signals together.
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal, QThread, QPoint
-from PySide6.QtWidgets import QMainWindow, QSplitter, QVBoxLayout, QHBoxLayout, QWidget, QLabel
+from PySide6.QtWidgets import QMainWindow, QSplitter, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QDialog
 
 from browser.debug_panel import DebugPanel
 from browser.navigation import NavigationBar, resolve_input_to_url
@@ -14,6 +14,7 @@ from browser.profile import get_browser_profile
 from browser.shortcuts import setup_shortcuts
 from browser.tabs import TabWidget
 from browser.webview import BrowserView
+from browser.settings_dialog import SettingsDialog
 from config.settings import NEW_TAB_URL, Settings, get_settings
 from utils.logger import get_logger
 
@@ -210,6 +211,7 @@ class MainWindow(QMainWindow):
         self.nav_bar.stop_clicked.connect(self._stop_current)
         self.nav_bar.home_clicked.connect(self._go_home)
         self.nav_bar.debug_mode_toggled.connect(self._on_debug_mode_toggled)
+        self.nav_bar.more_options_button.settings_requested.connect(self._on_settings_requested)
         self.tabs.current_view_changed.connect(self._on_current_view_changed)
         self.tabs.ai_request.connect(self._on_ai_request)
         self.tabs.full_page_request.connect(self._on_full_page_request)
@@ -282,6 +284,21 @@ class MainWindow(QMainWindow):
             total_width = max(self.width(), 800)
             self.splitter.setSizes([int(total_width * 0.65), int(total_width * 0.35)])
         logger.info("Debug mode %s", "enabled" if enabled else "disabled")
+
+    def _on_settings_requested(self) -> None:
+        """Open the settings dialog and apply changes if saved."""
+        dialog = SettingsDialog(self)
+        if dialog.exec() == QDialog.Accepted:
+            updated = dialog.get_updated_settings()
+            for key, value in updated.items():
+                setattr(self._settings, key, value)
+            self._settings.save()
+            logger.info("Application settings updated and saved.")
+
+            # Theme application logic could go here
+            # For now, we just log it.
+            if "theme" in updated:
+                logger.info("Theme changed to %s", updated["theme"])
 
     # -- Per-tab UI sync --------------------------------------------------------
 
