@@ -1,0 +1,34 @@
+# Project Status Analysis - AI Browser
+
+## Completed Features (Phase 1)
+- **Core Browser**: A fully functional Chromium-based browser with tabs, navigation, and a custom "New Tab" page.
+    - Tab management (create/close/reorder, reopen last closed).
+    - Smart navigation and address bar.
+    - Full Chromium rendering via QtWebEngine.
+- **Basic AI Integration**:
+    - "Send to AI" context menu for selected text.
+    - Async Ollama integration via `/api/generate`.
+    - Floating AI response popup (bottom-right).
+- **Configuration System**: JSON-based settings persistence for user preferences.
+- **Developer Tools**: Integrated Debug Panel for monitoring AI/Server traffic.
+- **Logging**: Standardized logging across all modules.
+
+## Missing / Planned Features (Phase 2+)
+- **Quiz Intelligence**:
+    - [ ] **Quiz Detection**: Automated detection of quiz-like content on a page (`quiz/detector.py`).
+    - [ ] **Quiz Parsing**: Extracting questions and options from the DOM (`quiz/parser.py`).
+- **Advanced AI Pipeline**:
+    - [ ] **AI Verifier**: Using LLMs to analyze and verify quiz answers (`ai/verifier.py`).
+    - [ ] **Prompt Engineering**: Specialized prompts for quiz analysis (`ai/prompts.py`).
+    - [ ] **AI Review Flow**: Wiring the "AI Review" toggle in settings to a real workflow.
+- **Backend Integration**:
+    - [ ] **Data Export**: Sending extracted quiz summaries to the remote backend (`server/client.py`).
+    - [ ] **Full Backend Sync**: Integrating the `BackendClient` into the main application flow.
+- **UI Improvements**:
+    - [ ] **Full Context Menu**: Replicating standard browser menu options alongside "Send to AI".
+    - [ ] **Settings UI**: A dedicated dialog to edit settings instead of manual JSON editing.
+
+## Current Architecture Notes
+- **UI Framework**: PySide6 (Qt).
+- **AI Provider**: Local Ollama instance (default model: qwen2.5).
+- **Decoupling**: AI and Server logic are kept independent of the UI to ensure the browser remains functional even if local AI/remote servers are offline.

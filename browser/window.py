@@ -264,16 +264,16 @@ class MainWindow(QMainWindow):
         """Show the AI response in a floating label at the bottom-right."""
         if not hasattr(self, "_ai_response_label"):
             self._ai_response_label = QLabel(self)
-            self._ai_response_label.setFixedSize(100, 50)
+            self._ai_response_label.setFixedSize(60, 30)
             self._ai_response_label.setWordWrap(True)
             self._ai_response_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
             self._ai_response_label.setStyleSheet('''
-                background: rgba(30, 31, 34, 220);
+                background: rgba(30, 31, 34, 150);
                 color: #eaeaec;
                 border: 1px solid #3a3b3f;
                 border-radius: 12px;
-                padding: 12px;
-                font-size: 13px;
+                padding: 8px;
+                font-size: 12px;
                 font-family: "Segoe UI", Roboto, Arial, sans-serif;
             ''')
             self._ai_response_label.hide()
@@ -281,8 +281,8 @@ class MainWindow(QMainWindow):
         self._ai_response_label.setText(text)
         # Position it at the bottom-right
         self._ai_response_label.move(
-            self.width() - self._ai_response_label.width() - 20,
-            self.height() - self._ai_response_label.height() - 20
+            10,
+            self.height() - self._ai_response_label.height() - 10
         )
         self._ai_response_label.show()
         self._ai_response_label.raise_()
