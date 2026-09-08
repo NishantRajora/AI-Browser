@@ -5,8 +5,8 @@ and wires their signals together.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal, QThread
-from PySide6.QtWidgets import QMainWindow, QSplitter, QVBoxLayout, QWidget, QLabel
+from PySide6.QtCore import Qt, Signal, QThread, QPoint
+from PySide6.QtWidgets import QMainWindow, QSplitter, QVBoxLayout, QHBoxLayout, QWidget, QLabel
 
 from browser.debug_panel import DebugPanel
 from browser.navigation import NavigationBar, resolve_input_to_url
@@ -23,81 +23,101 @@ class AIWorker(QThread):
     """Worker to fetch response from local Ollama without blocking UI."""
     finished = Signal(str)
 
-    def __init__(self, settings: Settings, prompt: str, parent=None) -> None:
+    def __init__(self, settings: Settings, prompt: str, label: str = "AI", parent=None) -> None:
         super().__init__(parent)
         self._settings = settings
         self._prompt = prompt
+        self._label = label
 
     def run(self) -> None:
         from ai.ollama import generate_response
         from browser.debug_log import DebugLog
 
-        DebugLog.instance().log("AI", f"Request -> Send to AI: {self._prompt[:100]}...")
+        DebugLog.instance().log(self._label, f"Request -> {self._prompt[:100]}...")
         result = generate_response(self._settings.ollama_url, self._settings.ollama_model, self._prompt)
-        DebugLog.instance().log("AI", f"Response <- AI: {result[:100]}...")
+        DebugLog.instance().log(self._label, f"Response <- {result[:100]}...")
         self.finished.emit(result)
 
 _STYLESHEET = """
-QMainWindow { background: #1e1f22; }
+QMainWindow { background: #202124; }
 
-QWidget#navigationBar { background: #1e1f22; border-bottom: 1px solid #2c2d30; }
+QWidget#navigationBar {
+    background: #202124;
+    border-bottom: 1px solid #3c4043;
+}
 
 QPushButton#navButton {
     background: transparent;
     border: none;
-    border-radius: 17px;
-    color: #d6d7db;
-    font-size: 15px;
+    border-radius: 16px;
+    color: #bdc1c6;
+    font-size: 16px;
+    padding: 4px;
 }
-QPushButton#navButton:hover { background: #2f3033; }
-QPushButton#navButton:disabled { color: #55565a; }
+QPushButton#navButton:hover { background: #3c4043; }
+QPushButton#navButton:disabled { color: #5f6368; }
 
 QLineEdit#addressBar {
-    background: #2a2b2e;
-    border: 1px solid #3a3b3f;
-    border-radius: 17px;
+    background: #292a2d;
+    border: 1px solid #3c4043;
+    border-radius: 16px;
     padding: 6px 16px;
-    color: #eaeaec;
+    color: #e8eaed;
     font-size: 14px;
+    selection-background-color: #4d7be6;
 }
-QLineEdit#addressBar:focus { border: 1px solid #6ea8fe; }
+QLineEdit#addressBar:focus { border: 1px solid #8ab4f8; background: #202124; }
 
-QTabWidget::pane { border: none; }
-QTabBar { background: #1a1b1d; }
+QTabWidget::pane {
+    border: none;
+    top: -1px;
+}
+QTabBar {
+    background: #202124;
+    border-bottom: 1px solid #3c4043;
+}
 QTabBar::tab {
-    background: #1a1b1d;
+    background: #202124;
     color: #9aa0a6;
-    padding: 8px 18px;
-    margin-right: 2px;
+    padding: 8px 12px;
+    margin-top: 8px;
     border-top-left-radius: 8px;
     border-top-right-radius: 8px;
-    min-width: 120px;
+    min-width: 150px;
+    border: none;
 }
-QTabBar::tab:selected { background: #2a2b2e; color: #eaeaec; }
-QTabBar::tab:hover:!selected { background: #232427; }
-QTabBar::close-button { subcontrol-position: right; }
+QTabBar::tab:selected {
+    background: #35363a;
+    color: #e8eaed;
+    font-weight: 500;
+}
+QTabBar::tab:hover:!selected { background: #292a2d; }
+QTabBar::close-button {
+    subcontrol-position: right;
+    image: none;
+}
 
 QMenu {
-    background: #26272a;
-    border: 1px solid #3a3b3f;
+    background: #2d2e31;
+    border: 1px solid #3c4043;
     border-radius: 8px;
     padding: 4px;
-    color: #eaeaec;
+    color: #e8eaed;
 }
-QMenu::item { padding: 7px 16px; border-radius: 5px; }
-QMenu::item:selected { background: #35363a; }
-QMenu::item:disabled { color: #6a6b6f; }
-QMenu::separator { height: 1px; background: #3a3b3f; margin: 4px 8px; }
+QMenu::item { padding: 8px 24px 8px 16px; border-radius: 4px; }
+QMenu::item:selected { background: #3c4043; }
+QMenu::item:disabled { color: #5f6368; }
+QMenu::separator { height: 1px; background: #3c4043; margin: 4px 0; }
 
-QSplitter::handle { background: #2c2d30; width: 2px; }
+QSplitter::handle { background: #3c4043; width: 1px; }
 
 QWidget#debugPanel { background: #1a1b1d; }
-QLabel#debugPanelTitle { color: #eaeaec; font-size: 13px; font-weight: 600; }
+QLabel#debugPanelTitle { color: #e8eaed; font-size: 13px; font-weight: 600; }
 QLabel#debugPanelSubtitle { color: #9aa0a6; font-size: 11px; }
 QPlainTextEdit#debugLogView {
     background: #101112;
     color: #c9cdd3;
-    border: 1px solid #2c2d30;
+    border: 1px solid #3c4043;
     border-radius: 6px;
     padding: 8px;
 }
@@ -118,18 +138,36 @@ class MainWindow(QMainWindow):
 
         self._profile = get_browser_profile(self._settings)
 
-        browsing_area = QWidget(self)
-        layout = QVBoxLayout(browsing_area)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-
-        self.nav_bar = NavigationBar(self._settings, self)
-        self.nav_bar.setObjectName("navigationBar")
-
+        # Initialize core components before layout construction
         self.tabs = TabWidget(self._profile, self._settings, self)
+        self.nav_bar = NavigationBar(self._settings, self)
 
-        layout.addWidget(self.nav_bar)
-        layout.addWidget(self.tabs, 1)
+        browsing_area = QWidget(self)
+        # Main layout
+        main_layout = QVBoxLayout(browsing_area)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # Chromium-style layout: Tab Bar on top, then Nav Bar, then Content
+        top_widget = QWidget()
+        top_layout = QVBoxLayout(top_widget)
+        top_layout.setContentsMargins(0, 0, 0, 0)
+        top_layout.setSpacing(0)
+
+        # Tab bar layout (Tabs + Add button)
+        tab_bar_container = QWidget()
+        tab_bar_layout = QHBoxLayout(tab_bar_container)
+        tab_bar_layout.setContentsMargins(0, 0, 0, 0)
+        tab_bar_layout.setSpacing(0)
+        tab_bar_layout.addWidget(self.tabs.tab_bar)
+        tab_bar_layout.addWidget(self.tabs.add_tab_button)
+
+        top_layout.addWidget(tab_bar_container)
+        top_layout.addWidget(self.nav_bar)
+
+        # Now add the stacked content area
+        main_layout.addWidget(top_widget)
+        main_layout.addWidget(self.tabs.content_area)
 
         # Debug Mode splits the window: browsing area on the left, a live
         # log of real AI/server request-response traffic on the right.
@@ -157,6 +195,9 @@ class MainWindow(QMainWindow):
         # Start with a single tab on the home page.
         self.tabs.new_tab(NEW_TAB_URL)
 
+        # Connect TabWidget's add button to the new_tab method
+        self.tabs.add_tab_button.clicked.connect(lambda: self.tabs.new_tab())
+
         logger.info("MyBrowser window initialized (%dx%d)", self.width(), self.height())
 
     # -- Wiring ---------------------------------------------------------------
@@ -171,15 +212,31 @@ class MainWindow(QMainWindow):
         self.nav_bar.debug_mode_toggled.connect(self._on_debug_mode_toggled)
         self.tabs.current_view_changed.connect(self._on_current_view_changed)
         self.tabs.ai_request.connect(self._on_ai_request)
+        self.tabs.full_page_request.connect(self._on_full_page_request)
 
-    def _on_ai_request(self, text: str) -> None:
+    def _on_ai_request(self, text: str, pos: QPoint) -> None:
         """Handle a request to send selected text to AI."""
-        logger.info("MainWindow: _on_ai_request called with text: %s", text[:50] + "...")
-        self.display_ai_response("Thinking…")
+        from ai.prompts import build_selected_text_prompt
 
-        self._ai_worker = AIWorker(self._settings, text, self)
+        self.display_ai_response("Scanning...", pos=pos)
+
+        prompt = build_selected_text_prompt(text)
+        self._ai_worker = AIWorker(self._settings, prompt, label="SEND SELECTED TEXT TO AI", parent=self)
         self._ai_worker.finished.connect(self.display_ai_response)
         self._ai_worker.start()
+
+    def _on_full_page_request(self, pos: QPoint) -> None:
+        """Handle a request to send the whole page content to AI."""
+        view = self._current_view()
+        if view is None:
+            self.display_ai_response("Unable to determine", pos=pos)
+            return
+
+        self.display_ai_response("Scanning...", pos=pos)
+
+        # Extract readable text asynchronously
+        js_code = "document.body.innerText"
+        view.page().runJavaScript(js_code, lambda result: self._process_full_page_result(result, pos))
 
     def _current_view(self) -> BrowserView | None:
         return self.tabs.current_view()
@@ -228,6 +285,11 @@ class MainWindow(QMainWindow):
 
     # -- Per-tab UI sync --------------------------------------------------------
 
+    def _hide_ai_response(self) -> None:
+        """Hide the AI response popup."""
+        if hasattr(self, "_ai_response_label"):
+            self._ai_response_label.hide()
+
     def _on_current_view_changed(self, view: BrowserView | None) -> None:
         if view is None:
             return
@@ -239,6 +301,7 @@ class MainWindow(QMainWindow):
         if not getattr(view, "_ui_synced", False):
             view.url_changed_str.connect(lambda url, v=view: self._maybe_sync(v, url))
             view.loadStarted.connect(lambda v=view: self._maybe_sync_loading(v, True))
+            view.loadStarted.connect(self._hide_ai_response)
             view.loadFinished.connect(lambda ok, v=view: self._maybe_sync_loading(v, False))
             view._ui_synced = True  # type: ignore[attr-defined]
 
@@ -260,40 +323,99 @@ class MainWindow(QMainWindow):
 
     # -- Qt overrides -------------------------------------------------------
 
-    def display_ai_response(self, text: str) -> None:
-        """Show the AI response in a floating label at the bottom-right."""
+    def display_ai_response(self, text: str, pos: QPoint = None) -> None:
+        """Show the AI response in a small, clean floating popup."""
         if not hasattr(self, "_ai_response_label"):
             self._ai_response_label = QLabel(self)
-            self._ai_response_label.setFixedSize(60, 30)
+            self._ai_response_label.setMinimumSize(0, 0)
+            self._ai_response_label.setMaximumWidth(300)
             self._ai_response_label.setWordWrap(True)
-            self._ai_response_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+            self._ai_response_label.setAlignment(Qt.AlignCenter)
+            # Style for a native-feeling tooltip
             self._ai_response_label.setStyleSheet('''
-                background: rgba(30, 31, 34, 150);
-                color: #eaeaec;
-                border: 1px solid #3a3b3f;
-                border-radius: 12px;
-                padding: 8px;
-                font-size: 12px;
-                font-family: "Segoe UI", Roboto, Arial, sans-serif;
+                QLabel {
+                    background-color: #2a2b2e;
+                    color: #eaeaec;
+                    border: 1px solid #3a3b3f;
+                    border-radius: 6px;
+                    padding: 4px 8px;
+                    font-size: 13px;
+                    font-weight: 600;
+                    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+                }
             ''')
             self._ai_response_label.hide()
 
-        self._ai_response_label.setText(text)
-        # Position it at the bottom-right
-        self._ai_response_label.move(
-            10,
-            self.height() - self._ai_response_label.height() - 10
-        )
-        self._ai_response_label.show()
-        self._ai_response_label.raise_()
+        # Handle special states
+        stripped_text = text.strip()
+        if stripped_text.startswith("Error:"):
+            final_text = "AI unavailable"
+        elif stripped_text == "NO_QUESTION":
+            final_text = "No question detected"
+        elif stripped_text == "UNCERTAIN":
+            final_text = "Unable to determine"
+        elif stripped_text in ("Scanning...", "Thinking…"):
+            final_text = "Scanning..."
+        elif stripped_text == "Unable to determine":
+            final_text = "Unable to determine"
+        else:
+            final_text = self._clean_answer(stripped_text)
 
-    def resizeEvent(self, event) -> None:
-        if hasattr(self, "_ai_response_label") and self._ai_response_label.isVisible():
+        self._ai_response_label.setText(final_text)
+        self._ai_response_label.adjustSize()
+
+        # Positioning
+        if pos:
+            # Convert global position to window-relative position
+            relative_pos = self.mapFromGlobal(pos)
+            # Offset slightly so it doesn't cover the cursor
+            self._ai_response_label.move(relative_pos.x() + 10, relative_pos.y() + 10)
+        else:
+            # Default to bottom-right if no position provided
             self._ai_response_label.move(
                 self.width() - self._ai_response_label.width() - 20,
                 self.height() - self._ai_response_label.height() - 20
             )
+
+        self._ai_response_label.show()
+        self._ai_response_label.raise_()
+
+    def _clean_answer(self, text: str) -> str:
+        """Remove Markdown formatting from the LLM answer."""
+        import re
+        # Remove code fences
+        text = re.sub(r'```.*?```', '', text, flags=re.DOTALL)
+        # Remove inline code
+        text = re.sub(r'`[^`]*`', '', text)
+        # Remove blockquotes
+        text = re.sub(r'>\s*', '', text)
+        # Remove bullet list markers
+        text = re.sub(r'^[\-\*•]\s+', '', text, flags=re.MULTILINE)
+        # Remove headers
+        text = re.sub(r'^[#]+[\s]*', '', text, flags=re.MULTILINE)
+        # Collapse whitespace
+        text = re.sub(r'\s+', ' ', text).strip()
+        return text
+
+    def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
+
+    def _process_full_page_result(self, content: str, pos: QPoint) -> None:
+        """Callback for JavaScript extraction of full page content."""
+        from ai.prompts import build_full_page_prompt
+
+        if not content or not content.strip():
+            self.display_ai_response("Unable to determine", pos=pos)
+            return
+
+        # Basic cleaning: remove excessive whitespace
+        import re
+        cleaned_content = re.sub(r'\n\s*\n', '\n\n', content.strip())
+
+        prompt = build_full_page_prompt(cleaned_content)
+        self._ai_worker = AIWorker(self._settings, prompt, label="SEND WHOLE PAGE TO AI", parent=self)
+        self._ai_worker.finished.connect(self.display_ai_response)
+        self._ai_worker.start()
 
     def closeEvent(self, event) -> None:  # noqa: N802 (Qt override)
 

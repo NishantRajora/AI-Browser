@@ -52,16 +52,7 @@ class Settings:
     backend_url: str = "http://localhost:8000"
     ai_confidence_threshold: float = 0.90
     quiz_detection_enabled: bool = False
-
-    # If True (default), detected quiz data is sent to the local Ollama model
-    # for review before anything is forwarded to the backend server. If False,
-    # AI review is skipped entirely — nothing goes to Ollama, and (once the
-    # backend integration in Phase 4 exists) data would go directly to the
-    # server instead, per this same flag.
-    ai_review_enabled: bool = True
-
-    # When enabled, right-clicking selected text allows sending it to the local AI.
-    select_and_send_enabled: bool = False
+    full_page_scan_enabled: bool = False
 
     _config_path: Path = field(default_factory=lambda: _default_config_dir() / "settings.json", repr=False)
 

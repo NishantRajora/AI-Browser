@@ -82,28 +82,6 @@ class MoreOptionsButton(QToolButton):
 
         self.menu.addSeparator()
 
-        self._ai_review_action = QAction("Send quiz data to AI for review", self.menu)
-        self._ai_review_action.setCheckable(True)
-        self._ai_review_action.setChecked(self._settings.ai_review_enabled)
-        self._ai_review_action.setToolTip(
-            "When off, quiz data is never sent to the local AI model."
-        )
-        self._ai_review_action.toggled.connect(self._on_ai_review_toggled)
-        self.menu.addAction(self._ai_review_action)
-
-        self.menu.addSeparator()
-
-        self._select_and_send_action = QAction("Select and Send to AI", self.menu)
-        self._select_and_send_action.setCheckable(True)
-        self._select_and_send_action.setChecked(self._settings.select_and_send_enabled)
-        self._select_and_send_action.setToolTip(
-            "When enabled, right-clicking selected text allows sending it to Ollama."
-        )
-        self._select_and_send_action.toggled.connect(self._on_select_and_send_toggled)
-        self.menu.addAction(self._select_and_send_action)
-
-        self.menu.addSeparator()
-
         self._debug_mode_action = QAction("Debug Mode", self.menu)
         self._debug_mode_action.setCheckable(True)
         self._debug_mode_action.setChecked(False)
@@ -146,15 +124,11 @@ class MoreOptionsButton(QToolButton):
         self._settings.save()
         logger.info("Ollama model set to '%s'", model_name)
 
-    def _on_ai_review_toggled(self, checked: bool) -> None:
-        self._settings.ai_review_enabled = checked
+    def _on_full_page_scan_toggled(self, checked: bool) -> None:
+        """Persist full‑page‑scan setting to disk."""
+        self._settings.full_page_scan_enabled = checked
         self._settings.save()
-        logger.info("AI review of quiz data %s", "enabled" if checked else "disabled")
-
-    def _on_select_and_send_toggled(self, checked: bool) -> None:
-        self._settings.select_and_send_enabled = checked
-        self._settings.save()
-        logger.info("Select and Send to AI %s", "enabled" if checked else "disabled")
+        logger.info("Full Page Scan %s", "enabled" if checked else "disabled")
 
     def _refresh_ollama_status(self) -> None:
         self._status_label.setText("Ollama: checking\u2026")

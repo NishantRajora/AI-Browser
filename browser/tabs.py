@@ -5,10 +5,10 @@ and "reopen last closed tab".
 
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, QPoint, Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWebEngineCore import QWebEngineProfile
-from PySide6.QtWidgets import QTabWidget
+from PySide6.QtWidgets import QWidget, QTabBar, QStackedWidget, QPushButton
 
 from browser.webview import BrowserView
 from config.settings import NEW_TAB_URL, Settings
@@ -21,11 +21,12 @@ _DEFAULT_TAB_TITLE = "New Tab"
 _MAX_TAB_TITLE_LEN = 24
 
 
-class TabWidget(QTabWidget):
-    """A QTabWidget specialized for browser tabs, each holding a BrowserView."""
+class TabWidget(QWidget):
+    """Manages browser tabs using a separate QTabBar and QStackedWidget."""
 
     current_view_changed = Signal(object)  # emits the now-active BrowserView
-    ai_request = Signal(str)
+    ai_request = Signal(str, QPoint)
+    full_page_request = Signal(QPoint)
 
     def __init__(self, profile: QWebEngineProfile, settings: Settings, parent=None) -> None:
         super().__init__(parent)
@@ -33,19 +34,27 @@ class TabWidget(QTabWidget):
         self._settings = settings
         self._closed_tab_urls: list[str] = []
 
-        self.setTabsClosable(True)
-        self.setMovable(True)  # drag-to-reorder tabs
-        self.setDocumentMode(True)
-        self.setElideMode__safe()
+        # Tab Bar
+        self.tab_bar = QTabBar(self)
+        self.tab_bar.setMovable(True)
+        self.tab_bar.setExpanding(False)
 
-        self.tabCloseRequested.connect(self.close_tab)
-        self.currentChanged.connect(self._on_current_changed)
+        # Content Area
+        self.content_area = QStackedWidget(self)
+
+        # New Tab (+) button
+        self.add_tab_button = QPushButton("+")
+        self.add_tab_button.setFixedSize(30, 20)
+        self.add_tab_button.setToolTip("New Tab (Ctrl+T)")
+        self.add_tab_button.setCursor(Qt.PointingHandCursor)
+
+        # Connect signals
+        self.tab_bar.currentChanged.connect(self._on_current_changed)
+        self.tab_bar.tabCloseRequested.connect(self.close_tab)
 
     def setElideMode__safe(self) -> None:
-        # Small helper kept separate so intent is documented; elides long titles.
-        from PySide6.QtCore import Qt
-
-        self.setElideMode(Qt.ElideRight)
+        # No longer needed as QTabBar handles eliding differently or we use lapped text
+        pass
 
     # -- Tab lifecycle -----------------------------------------------------
 
@@ -57,38 +66,46 @@ class TabWidget(QTabWidget):
         view.loadStarted.connect(lambda v=view: self._on_load_started(v))
         view.loadFinished.connect(lambda ok, v=view: self._on_load_finished(v, ok))
         view.ai_request.connect(self._handle_view_ai_request)
+        view.full_page_request.connect(self._handle_view_full_page_request)
 
-        index = self.addTab(view, _DEFAULT_TAB_TITLE)
+        index = self.tab_bar.addTab(_DEFAULT_TAB_TITLE)
+        self.content_area.addWidget(view)
+
         target = url or self._settings.home_page
         view.navigate_to(target if target else NEW_TAB_URL)
 
         if make_current:
-            self.setCurrentIndex(index)
+            self.tab_bar.setCurrentIndex(index)
+            self.content_area.setCurrentIndex(index)
 
         logger.info("Opened new tab (index=%d) -> %s", index, target)
         return view
 
-    def _handle_view_ai_request(self, text: str) -> None:
+    def _handle_view_ai_request(self, text: str, pos: QPoint) -> None:
         logger.info("TabWidget: received ai_request from view, emitting to window")
-        self.ai_request.emit(text)
+        self.ai_request.emit(text, pos)
+
+    def _handle_view_full_page_request(self, pos: QPoint) -> None:
+        logger.info("TabWidget: received full_page_request from view, emitting to window")
+        self.full_page_request.emit(pos)
 
     def close_tab(self, index: int) -> None:
-        """Close the tab at `index`. Never lets the window end up with zero tabs."""
-        if index < 0 or index >= self.count():
+        """Close the tab at `index`."""
+        if index < 0 or index >= self.tab_bar.count():
             return
 
-        view = self.widget(index)
+        view = self.content_area.widget(index)
         closed_url = view.url().toString() if hasattr(view, "url") else ""
         if closed_url and closed_url != NEW_TAB_URL:
             self._closed_tab_urls.append(closed_url)
             del self._closed_tab_urls[:-_MAX_CLOSED_TAB_HISTORY]
 
-        self.removeTab(index)
+        self.tab_bar.removeTab(index)
+        self.content_area.removeWidget(view)
         view.deleteLater()
         logger.info("Closed tab (index=%d) -> %s", index, closed_url)
 
-        if self.count() == 0:
-            # Never leave the browser with no tabs at all.
+        if self.tab_bar.count() == 0:
             self.new_tab(NEW_TAB_URL)
 
     def reopen_last_closed_tab(self) -> None:
@@ -99,45 +116,48 @@ class TabWidget(QTabWidget):
         self.new_tab(url)
 
     def close_current_tab(self) -> None:
-        self.close_tab(self.currentIndex())
+        self.close_tab(self.tab_bar.currentIndex())
 
     # -- Convenience accessors ----------------------------------------------
 
     def current_view(self) -> BrowserView | None:
-        widget = self.currentWidget()
-        return widget if isinstance(widget, BrowserView) else None
+        index = self.tab_bar.currentIndex()
+        if index < 0:
+            return None
+        return self.content_area.widget(index) if isinstance(self.content_area.widget(index), BrowserView) else None
 
     # -- Signal handlers -----------------------------------------------------
 
     def _on_current_changed(self, index: int) -> None:
+        self.content_area.setCurrentIndex(index)
         self.current_view_changed.emit(self.current_view())
 
     def _on_title_changed(self, view: BrowserView, title: str) -> None:
-        index = self.indexOf(view)
+        index = self.content_area.indexOf(view)
         if index == -1:
             return
         display_title = title.strip() or _DEFAULT_TAB_TITLE
         if len(display_title) > _MAX_TAB_TITLE_LEN:
-            display_title = display_title[: _MAX_TAB_TITLE_LEN - 1] + "\u2026"
-        self.setTabText(index, display_title)
-        self.setTabToolTip(index, title)
+            display_title = display_title[: _MAX_TAB_TITLE_LEN - 1] + "…"
+        self.tab_bar.setTabText(index, display_title)
+        self.tab_bar.setTabToolTip(index, title)
 
     def _on_icon_changed(self, view: BrowserView) -> None:
-        index = self.indexOf(view)
+        index = self.content_area.indexOf(view)
         if index == -1:
             return
         icon: QIcon = view.icon()
         if not icon.isNull():
-            self.setTabIcon(index, icon)
+            self.tab_bar.setTabIcon(index, icon)
 
     def _on_load_started(self, view: BrowserView) -> None:
-        index = self.indexOf(view)
+        index = self.content_area.indexOf(view)
         if index != -1:
-            self.setTabText(index, "Loading\u2026")
+            self.tab_bar.setTabText(index, "Loading…")
 
     def _on_load_finished(self, view: BrowserView, ok: bool) -> None:
-        index = self.indexOf(view)
+        index = self.content_area.indexOf(view)
         if index == -1:
             return
         if not ok:
-            self.setTabText(index, "Failed to load")
+            self.tab_bar.setTabText(index, "Failed to load")
